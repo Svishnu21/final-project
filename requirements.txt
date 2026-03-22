@@ -3,3 +3,10 @@ pymongo==4.6.1
 python-dotenv==1.0.0
 fpdf2==2.7.6
 scikit-learn
+gunicorn
+dnspython
+bleach
+validators
+flask-wtf
+flask-talisman
+flask-limiter
