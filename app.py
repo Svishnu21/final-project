@@ -72,7 +72,15 @@ limiter = Limiter(
     storage_uri="memory://"
 )
 
-client = MongoClient(os.getenv("MONGO_URI", "mongodb://localhost:27017/interview_eval"))
+MONGO_URI = os.getenv("MONGO_URI")
+
+if not MONGO_URI:
+    raise RuntimeError("MONGO_URI environment variable is not set.")
+
+if not MONGO_URI.startswith("mongodb"):
+    raise RuntimeError(f"MONGO_URI invalid. Value starts with: '{MONGO_URI[:20]}'")
+
+client = MongoClient(MONGO_URI)
 db = client[os.getenv('DB_NAME', 'interview_eval')]
 
 # Collections
