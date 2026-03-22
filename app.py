@@ -73,7 +73,7 @@ limiter = Limiter(
 )
 
 client = MongoClient(os.getenv("MONGO_URI", "mongodb://localhost:27017/interview_eval"))
-db = client.get_default_database()
+db = client[os.getenv('DB_NAME', 'interview_eval')]
 
 # Collections
 questions_col = db["questions"]
