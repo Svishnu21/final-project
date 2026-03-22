@@ -50,16 +50,24 @@ csrf = CSRFProtect(app)
 # Security Headers setup via Talisman
 csp = {
     'default-src': '\'self\'',
+    'style-src': [
+        '\'self\'',
+        '\'unsafe-inline\'',
+        'https://fonts.googleapis.com'
+    ],
+    'font-src': [
+        '\'self\'',
+        'https://fonts.gstatic.com'
+    ],
     'script-src': '\'self\'',
-    'style-src': ['\'self\'', '\'unsafe-inline\''],
-    'img-src': '\'self\'',
-    'font-src': '\'self\''
+    'img-src': '\'self\''
 }
+
 Talisman(app,
     content_security_policy=csp,
-    force_https=os.getenv("FLASK_ENV") == "production",
+    force_https=False,
     strict_transport_security=False,
-    session_cookie_secure=os.getenv("FLASK_ENV") == "production",
+    session_cookie_secure=False,
     session_cookie_http_only=True,
     referrer_policy='strict-origin-when-cross-origin'
 )
@@ -247,15 +255,30 @@ def login():
         password = request.form.get('password', '').strip()
 
         admin_username = os.getenv('ADMIN_USERNAME', 'admin')
-        admin_password_hash = os.getenv('ADMIN_PASSWORD_HASH')
+        admin_password_hash = os.getenv('ADMIN_PASSWORD_HASH', '')
 
-        # Debug line — remove after fixing
-        print(f"LOGIN ATTEMPT: username='{username}' admin_username='{admin_username}' hash_exists={bool(admin_password_hash)}")
+        print(f"DEBUG username='{username}'")
+        print(f"DEBUG admin_username='{admin_username}'")
+        print(f"DEBUG password='{password}'")
+        print(f"DEBUG hash='{admin_password_hash[:30]}'")
+        print(f"DEBUG username_match={username == admin_username}")
 
-        if username == admin_username and admin_password_hash and check_password_hash(admin_password_hash, password):
+        if not admin_password_hash:
+            flash('ADMIN_PASSWORD_HASH not set in environment.')
+            return redirect(url_for('login'))
+
+        try:
+            password_correct = check_password_hash(admin_password_hash, password)
+        except Exception as e:
+            flash(f'Hash error: {str(e)}')
+            return redirect(url_for('login'))
+
+        print(f"DEBUG password_correct={password_correct}")
+
+        if username == admin_username and password_correct:
+            session.clear()
             session['logged_in'] = True
             session['last_active'] = datetime.now().isoformat()
-            flash('Logged in successfully.')
             return redirect(url_for('dashboard'))
         else:
             flash('Invalid credentials. Please try again.')
