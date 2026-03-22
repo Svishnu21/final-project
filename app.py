@@ -240,43 +240,28 @@ def _build_reason(similarity_score, time_flag, similar_to):
 # ===================================================================
 # ROUTES — Auth
 # ===================================================================
-@app.route("/login", methods=["GET", "POST"])
-@limiter.limit("5 per minute")
+@app.route('/login', methods=['GET', 'POST'])
 def login():
-    if request.method == "POST":
-        ip = get_remote_address()
-        now = datetime.now()
-        
-        # Brute force check
-        attempt_info = failed_attempts.get(ip, {'count': 0, 'last_attempt': now})
-        if attempt_info['count'] >= 5:
-            elapsed = (now - attempt_info['last_attempt']).seconds
-            if elapsed < 900: # 15 minutes
-                flash("Too many failed attempts. Try again in 15 minutes.", "danger")
-                return render_template("login.html")
-            else:
-                # Reset after 15 mins
-                attempt_info['count'] = 0
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
 
-        username = request.form.get("username", "")
-        password = request.form.get("password", "")
-        
-        if username == ADMIN_USERNAME and check_password_hash(ADMIN_PASSWORD_HASH, password):
-            session.clear() # clear existing to prevent session fixation
-            session["logged_in"] = True
-            session['last_active'] = now.isoformat()
-            if ip in failed_attempts:
-                del failed_attempts[ip]
-            flash("Logged in successfully!", "success")
-            return redirect(url_for("dashboard"))
-        
-        # Log failed attempt
-        attempt_info['count'] += 1
-        attempt_info['last_attempt'] = now
-        failed_attempts[ip] = attempt_info
-        
-        flash("Invalid credentials. Please try again.", "danger")
-    return render_template("login.html")
+        admin_username = os.getenv('ADMIN_USERNAME', 'admin')
+        admin_password_hash = os.getenv('ADMIN_PASSWORD_HASH')
+
+        # Debug line — remove after fixing
+        print(f"LOGIN ATTEMPT: username='{username}' admin_username='{admin_username}' hash_exists={bool(admin_password_hash)}")
+
+        if username == admin_username and admin_password_hash and check_password_hash(admin_password_hash, password):
+            session['logged_in'] = True
+            session['last_active'] = datetime.now().isoformat()
+            flash('Logged in successfully.')
+            return redirect(url_for('dashboard'))
+        else:
+            flash('Invalid credentials. Please try again.')
+            return redirect(url_for('login'))
+
+    return render_template('login.html')
 
 
 @app.route("/logout")
