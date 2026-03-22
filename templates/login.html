@@ -1,48 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Recruiter Login — Interview Evaluation System</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
 </head>
+
 <body>
 
-<div class="login-wrapper">
-    <div class="card login-card">
-        <div class="login-logo">🔐</div>
-        <h2 class="page-title" style="margin-bottom:.25rem;">Recruiter Login</h2>
-        <p class="page-subtitle" style="margin-bottom:1.5rem;">Sign in to access the evaluation dashboard</p>
+    <div class="login-wrapper">
+        <div class="card login-card">
+            <div class="login-logo">🔐</div>
+            <h2 class="page-title" style="margin-bottom:.25rem;">Recruiter Login</h2>
+            <p class="page-subtitle" style="margin-bottom:1.5rem;">Sign in to access the evaluation dashboard</p>
 
-        <!-- Flash messages -->
-        {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
+            <!-- Flash messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
             {% for category, message in messages %}
             <div class="flash flash-{{ category }}">{{ message }}</div>
             {% endfor %}
-        {% endif %}
-        {% endwith %}
+            {% endif %}
+            {% endwith %}
 
-        <form method="POST" action="{{ url_for('login') }}" id="login-form">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-            <div class="form-group">
-                <label for="username">Username</label>
-                <input type="text" id="username" name="username" placeholder="admin" autocomplete="username" required autofocus />
-            </div>
-            <div class="form-group">
-                <label for="password">Password</label>
-                <input type="password" id="password" name="password" placeholder="••••••••" autocomplete="current-password" required />
-            </div>
-            <button type="submit" class="btn btn-primary" style="width:100%;" id="login-btn">
-                🔑 Sign In
-            </button>
-        </form>
-
-        <p class="text-center mt-2" style="color:var(--text-muted);font-size:.82rem;">
-            Default credentials: <strong>admin / admin123</strong>
-        </p>
+            <form method="POST" action="{{ url_for('login') }}" id="login-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" placeholder="user" autocomplete="username" required
+                        autofocus />
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" placeholder="••••••••"
+                        autocomplete="current-password" required />
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%;" id="login-btn">
+                    🔑 Sign In
+                </button>
+            </form>
+        </div>
     </div>
-</div>
 
 </body>
+
 </html>
