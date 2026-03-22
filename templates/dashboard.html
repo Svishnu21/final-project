@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Recruiter dashboard showing candidate evaluation results, malpractice risk scores, and downloadable reports." />
+    <title>Dashboard — Interview Evaluation System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <style>
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .summary-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 1.2rem 1.4rem;
+            text-align: center;
+            transition: transform var(--transition), box-shadow var(--transition);
+        }
+        .summary-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(0,0,0,.4);
+        }
+        .summary-card .sc-value {
+            font-size: 2rem;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+        .summary-card .sc-label {
+            font-size: .75rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: .06em;
+            margin-top: .25rem;
+        }
+
+        .filter-bar {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        .filter-btn {
+            padding: .4rem 1rem;
+            border-radius: 20px;
+            font-size: .82rem;
+            font-weight: 600;
+            border: 1px solid var(--border-color);
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            text-decoration: none;
+            transition: all var(--transition);
+        }
+        .filter-btn:hover {
+            background: rgba(108, 99, 255, .1);
+            border-color: var(--accent);
+            color: var(--accent-light);
+        }
+        .filter-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: .75rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .detection-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: .8rem 1.2rem;
+            margin-bottom: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            flex-wrap: wrap;
+        }
+        .detection-bar .det-info {
+            font-size: .85rem;
+            color: var(--text-secondary);
+        }
+        .detection-bar .det-info strong {
+            color: var(--accent-light);
+        }
+
+        .badge-cleared {
+            background: rgba(52, 152, 219, .15);
+            color: #3498db;
+        }
+        .badge-confirmed {
+            background: rgba(192, 57, 43, .2);
+            color: #e74c3c;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container-wide">
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+        <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <!-- Header -->
+    <div class="dash-header">
+        <div>
+            <h1>📊 Evaluation Dashboard</h1>
+            <p style="color:var(--text-secondary);font-size:.9rem;">
+                Malpractice detection &amp; risk overview
+            </p>
+        </div>
+        <div class="nav-links">
+            <a href="{{ url_for('questions') }}" class="btn btn-outline btn-sm">🛠️ Questions</a>
+            <a href="{{ url_for('candidates') }}" class="btn btn-outline btn-sm">👥 Candidates</a>
+            <a href="{{ url_for('logout') }}" class="btn btn-outline btn-sm">Logout</a>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="summary-cards">
+        <div class="summary-card">
+            <div class="sc-value" style="color:var(--accent-light);">{{ total_questions }}</div>
+            <div class="sc-label">Questions Created</div>
+        </div>
+        <div class="summary-card">
+            <div class="sc-value" style="color:var(--text-primary);">{{ total_candidates }}</div>
+            <div class="sc-label">Total Candidates</div>
+        </div>
+        <div class="summary-card">
+            <div class="sc-value" style="color:var(--warning);">{{ pending_count }}</div>
+            <div class="sc-label">Pending</div>
+        </div>
+        <div class="summary-card">
+            <div class="sc-value" style="color:var(--success);">{{ completed_count }}</div>
+            <div class="sc-label">Completed</div>
+        </div>
+        <div class="summary-card">
+            <div class="sc-value" style="color:var(--danger);">{{ high_risk_count }}</div>
+            <div class="sc-label">High Risk</div>
+        </div>
+    </div>
+
+    <!-- Detection Engine Bar -->
+    <div class="detection-bar">
+        <div class="det-info">
+            🔬 <strong>6-Signal Malpractice Engine</strong>
+            {% if detection_ran %}
+                &nbsp;·&nbsp; <span style="color:var(--success);">✅ Last run complete</span>
+            {% else %}
+                &nbsp;·&nbsp; <span style="color:var(--warning);">⏳ Not yet run</span>
+            {% endif %}
+        </div>
+        <a href="{{ url_for('run_detection') }}" class="btn btn-primary btn-sm" id="run-detection-btn">
+            🚀 Run Malpractice Detection
+        </a>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+        <span style="color:var(--text-muted);font-size:.82rem;font-weight:600;">FILTER:</span>
+        <a href="{{ url_for('dashboard', risk='all') }}"
+           class="filter-btn {% if risk_filter == 'all' %}active{% endif %}">All</a>
+        <a href="{{ url_for('dashboard', risk='low') }}"
+           class="filter-btn {% if risk_filter == 'low' %}active{% endif %}"
+           style="{% if risk_filter == 'low' %}background:var(--success);border-color:var(--success);color:#fff;{% endif %}">
+            🟢 Low
+        </a>
+        <a href="{{ url_for('dashboard', risk='medium') }}"
+           class="filter-btn {% if risk_filter == 'medium' %}active{% endif %}"
+           style="{% if risk_filter == 'medium' %}background:var(--warning);border-color:var(--warning);color:#fff;{% endif %}">
+            🟡 Medium
+        </a>
+        <a href="{{ url_for('dashboard', risk='high') }}"
+           class="filter-btn {% if risk_filter == 'high' %}active{% endif %}"
+           style="{% if risk_filter == 'high' %}background:var(--danger);border-color:var(--danger);color:#fff;{% endif %}">
+            🔴 High
+        </a>
+    </div>
+
+    <!-- Results Table -->
+    {% if rows %}
+    <div class="table-wrapper">
+        <table id="results-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Auto Score</th>
+                    <th>Final Score</th>
+                    <th>Text Review</th>
+                    <th>Risk Level</th>
+                    <th>Reason</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in rows %}
+                <tr class="row-{{ r.risk | lower }}">
+                    <td>{{ loop.index }}</td>
+                    <td>{{ r.name }}</td>
+                    <td>{{ r.email }}</td>
+                    <td><strong>{{ r.auto_score }}</strong>%</td>
+                    <td><strong>{{ r.final_score }}</strong>%</td>
+                    <td>
+                        {% if r.review_status == 'Reviewed' %}
+                            <span class="badge badge-low">✅ Reviewed</span>
+                        {% else %}
+                            <span class="badge" style="background:rgba(243,156,18,.15);color:var(--warning);">⏳ Pending</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if r.risk == 'Cleared' %}
+                            <span class="badge badge-cleared">✅ Cleared</span>
+                        {% elif r.risk == 'Confirmed' %}
+                            <span class="badge badge-confirmed">🚨 Confirmed</span>
+                        {% else %}
+                            <span class="badge badge-{{ r.risk | lower }}">{{ r.risk }}</span>
+                        {% endif %}
+                        {% if r.confidence %}
+                            <span style="font-size:.72rem;color:var(--text-muted);margin-left:.25rem;">({{ r.confidence }})</span>
+                        {% endif %}
+                    </td>
+                    <td style="white-space:normal;max-width:220px;font-size:.82rem;">{{ r.reason }}</td>
+                    <td>
+                        <div style="display:flex;gap:.4rem;flex-wrap:wrap;">
+                            <a href="{{ url_for('review', submission_id=r.id) }}"
+                               class="btn btn-outline btn-sm" title="View & score answers">
+                                👁️ Review
+                            </a>
+                            <a href="{{ url_for('report', submission_id=r.id) }}"
+                               class="btn btn-primary btn-sm" title="Download PDF report">
+                                📄 PDF
+                            </a>
+                            {% if r.compare_with and r.risk in ('Medium', 'High') %}
+                            <a href="{{ url_for('compare', email_a=r.email, email_b=r.compare_with) }}"
+                               class="btn btn-sm" style="background:rgba(243,156,18,.15);color:var(--warning);border:1px solid rgba(243,156,18,.3);"
+                               title="Compare with flagged candidate">
+                                🔍 Compare
+                            </a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card text-center" style="padding:3rem;">
+        <p style="font-size:2.5rem;margin-bottom:.5rem;">📭</p>
+        <h2>No submissions yet</h2>
+        <p style="color:var(--text-secondary);margin-bottom:1rem;">
+            Once candidates submit their tests, results will appear here.
+        </p>
+        <div style="display:flex;gap:.75rem;justify-content:center;">
+            <a href="{{ url_for('questions') }}" class="btn btn-outline btn-sm">🛠️ Create Questions</a>
+            <a href="{{ url_for('candidates') }}" class="btn btn-primary btn-sm">👥 Add Candidates</a>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+</body>
+</html>

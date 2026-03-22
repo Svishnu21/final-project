@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Manage candidates and generate unique test links." />
+    <title>Candidates — Interview Evaluation System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+
+<div class="container-wide">
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+        <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <!-- Header -->
+    <div class="dash-header">
+        <div>
+            <h1>👥 Candidate Management</h1>
+            <p style="color:var(--text-secondary);font-size:.9rem;">
+                Add candidates &amp; generate unique test links
+            </p>
+        </div>
+        <div style="display:flex;gap:.75rem;align-items:center;">
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline btn-sm">← Dashboard</a>
+            <a href="{{ url_for('questions') }}" class="btn btn-outline btn-sm">🛠️ Questions</a>
+            <a href="{{ url_for('logout') }}" class="btn btn-outline btn-sm">Logout</a>
+        </div>
+    </div>
+
+    <!-- ─── Add Candidate Form ─── -->
+    <div class="card" style="margin-bottom:2rem;">
+        <h2 style="margin-bottom:1rem;">➕ Add New Candidate</h2>
+        <form action="{{ url_for('add_candidate') }}" method="POST" id="add-candidate-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:1rem;align-items:end;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label for="name">Full Name</label>
+                    <input type="text" id="name" name="name" placeholder="e.g. John Doe" required />
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" placeholder="e.g. john@example.com" required />
+                </div>
+                <button type="submit" class="btn btn-primary" id="add-candidate-btn" style="height:fit-content;">
+                    ✨ Add &amp; Generate Link
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- ─── Candidates Table ─── -->
+    <h2 style="margin-bottom:1rem;">📋 Registered Candidates ({{ candidates | length }})</h2>
+
+    {% if candidates %}
+    <div class="table-wrapper">
+        <table id="candidates-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Status</th>
+                    <th>Test Link</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in candidates %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ c.name }}</td>
+                    <td>{{ c.email }}</td>
+                    <td>
+                        {% if c.status == 'completed' %}
+                            <span class="badge badge-low">✅ Completed</span>
+                        {% else %}
+                            <span class="badge" style="background:rgba(243,156,18,.15);color:var(--warning);">⏳ Pending</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:.5rem;">
+                            <input type="text" id="link-{{ loop.index }}"
+                                   value="{{ base_url }}/test/{{ c.token }}"
+                                   readonly
+                                   style="font-size:.78rem;padding:.4rem .6rem;max-width:280px;cursor:text;" />
+                            <button type="button" class="btn btn-outline btn-sm"
+                                    onclick="copyLink('link-{{ loop.index }}', this)"
+                                    style="white-space:nowrap;">
+                                📋 Copy
+                            </button>
+                        </div>
+                    </td>
+                    <td>
+                        <form action="{{ url_for('delete_candidate', cid=c._id) }}" method="POST"
+                              style="display:inline;" onsubmit="return confirm('Remove this candidate?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="btn btn-danger btn-sm">🗑️ Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card text-center" style="padding:2.5rem;">
+        <p style="font-size:2rem;margin-bottom:.5rem;">📭</p>
+        <p style="color:var(--text-secondary);">No candidates added yet. Add your first candidate above!</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function copyLink(inputId, btn) {
+    var input = document.getElementById(inputId);
+    input.select();
+    input.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(input.value).then(function() {
+        var original = btn.innerHTML;
+        btn.innerHTML = '✅ Copied!';
+        btn.style.borderColor = '#2ecc71';
+        btn.style.color = '#2ecc71';
+        setTimeout(function() {
+            btn.innerHTML = original;
+            btn.style.borderColor = '';
+            btn.style.color = '';
+        }, 2000);
+    }).catch(function() {
+        // Fallback for older browsers
+        document.execCommand('copy');
+        btn.innerHTML = '✅ Copied!';
+        setTimeout(function() {
+            btn.innerHTML = '📋 Copy';
+        }, 2000);
+    });
+}
+</script>
+
+</body>
+</html>

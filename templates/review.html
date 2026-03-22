@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Review candidate answers and assign manual scores for text/coding questions." />
+    <title>Review Answers — Interview Evaluation System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <style>
+        .answer-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 1.2rem 1.4rem;
+            margin-bottom: 1rem;
+        }
+        .answer-card.correct { border-left: 4px solid var(--success); }
+        .answer-card.incorrect { border-left: 4px solid var(--danger); }
+        .answer-card.manual { border-left: 4px solid var(--warning); }
+
+        .answer-label {
+            font-size: .78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            margin-bottom: .3rem;
+        }
+        .answer-value {
+            padding: .6rem .9rem;
+            background: var(--bg-input);
+            border-radius: var(--radius-sm);
+            font-size: .9rem;
+            margin-top: .3rem;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .score-form-card {
+            background: var(--bg-card);
+            border: 2px solid var(--accent);
+            border-radius: var(--radius);
+            padding: 1.5rem 2rem;
+            margin-top: 2rem;
+        }
+        .score-input {
+            max-width: 120px;
+            display: inline-block;
+            text-align: center;
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .risk-banner {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem 1.4rem;
+            border-radius: var(--radius);
+            margin-bottom: 1.5rem;
+        }
+        .risk-banner.risk-low    { background: rgba(46,204,113,.08); border: 1px solid rgba(46,204,113,.25); }
+        .risk-banner.risk-medium { background: rgba(243,156,18,.08); border: 1px solid rgba(243,156,18,.25); }
+        .risk-banner.risk-high   { background: rgba(231,76,60,.08);  border: 1px solid rgba(231,76,60,.25); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+        <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <!-- Header -->
+    <div class="dash-header">
+        <div>
+            <h1>📋 Review: {{ submission.name }}</h1>
+            <p style="color:var(--text-secondary);font-size:.9rem;">
+                {{ submission.email }} &nbsp;·&nbsp; Auto Score: <strong>{{ submission.auto_score }}%</strong>
+            </p>
+        </div>
+        <div>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline btn-sm">← Dashboard</a>
+        </div>
+    </div>
+
+    <!-- Risk Banner -->
+    <div class="risk-banner risk-{{ risk | lower }}">
+        <span class="badge badge-{{ risk | lower }}" style="font-size:.85rem;">{{ risk }} Risk</span>
+        <span style="color:var(--text-secondary);font-size:.88rem;">{{ reason }}</span>
+        <span style="margin-left:auto;color:var(--text-muted);font-size:.82rem;">
+            Similarity: {{ similarity }}%
+        </span>
+    </div>
+
+    <!-- Answers -->
+    <h2 style="margin-bottom:1rem;">Submitted Answers</h2>
+
+    {% for item in review_items %}
+    <div class="answer-card {% if item.type == 'text' %}manual{% elif item.is_correct == true %}correct{% elif item.is_correct == false %}incorrect{% endif %}">
+        <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem;">
+            <span class="question-number">Q{{ loop.index }}</span>
+
+            {% if item.type == 'mcq' %}
+                <span class="badge" style="background:rgba(108,99,255,.15);color:var(--accent-light);font-size:.68rem;">MCQ</span>
+            {% elif item.type == 'truefalse' %}
+                <span class="badge" style="background:rgba(46,204,113,.15);color:var(--success);font-size:.68rem;">T/F</span>
+            {% elif item.type == 'fillintheblank' %}
+                <span class="badge" style="background:rgba(243,156,18,.15);color:var(--warning);font-size:.68rem;">Fill Blank</span>
+            {% else %}
+                <span class="badge" style="background:rgba(231,76,60,.15);color:var(--danger);font-size:.68rem;">Text</span>
+            {% endif %}
+
+            {% if item.is_correct == true %}
+                <span style="color:var(--success);font-weight:600;font-size:.82rem;">✅ Correct</span>
+            {% elif item.is_correct == false %}
+                <span style="color:var(--danger);font-weight:600;font-size:.82rem;">❌ Incorrect</span>
+            {% elif item.type == 'text' %}
+                <span style="color:var(--warning);font-weight:600;font-size:.82rem;">👁️ Needs Review</span>
+            {% endif %}
+        </div>
+
+        <p class="question-text">{{ item.question_text }}</p>
+
+        <div class="answer-label" style="color:var(--accent-light);">Submitted Answer</div>
+        <div class="answer-value">{{ item.submitted_answer if item.submitted_answer else '(No answer provided)' }}</div>
+
+        {% if item.type != 'text' %}
+        <div class="answer-label mt-1" style="color:var(--success);">Correct Answer</div>
+        <div class="answer-value" style="border-left:2px solid var(--success);">{{ item.correct_answer }}</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    <!-- Manual Scoring Form -->
+    <div class="score-form-card">
+        <h3 style="margin-bottom:.8rem;">✍️ Manual Score for Text/Coding Questions</h3>
+        <p style="color:var(--text-secondary);font-size:.88rem;margin-bottom:1rem;">
+            Review the text answers above and assign a score (0–100) for the text/coding portion.
+            This will be combined with the auto-score to produce a weighted final score.
+        </p>
+        <form action="{{ url_for('score_submission', submission_id=submission._id) }}" method="POST"
+              style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <label for="manual_score" style="margin-bottom:0;color:var(--text-primary);">
+                Text Score (0–100):
+            </label>
+            <input type="number" id="manual_score" name="manual_score"
+                   min="0" max="100" step="0.5"
+                   value="{{ submission.manual_score if submission.manual_score is not none else '' }}"
+                   placeholder="0"
+                   class="score-input" required />
+            <button type="submit" class="btn btn-primary" id="save-score-btn">
+                💾 Save Score
+            </button>
+        </form>
+    </div>
+
+</div>
+
+</body>
+</html>

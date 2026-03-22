@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Online interview aptitude and coding test for candidates." />
+    <title>Candidate Test — Interview Evaluation System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+
+<div class="container">
+    <h1 class="page-title">📝 Interview Aptitude Test</h1>
+    <p class="page-subtitle">Answer all questions carefully. Your responses will be auto‑evaluated.</p>
+
+    <form action="{{ url_for('submit') }}" method="POST" class="card" id="test-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+        <!-- ─── Candidate Info ─── -->
+        <div class="section-divider">Candidate Information</div>
+
+        <div class="form-group">
+            <label for="name">Full Name</label>
+            <input type="text" id="name" name="name" placeholder="e.g. John Doe" required />
+        </div>
+        <div class="form-group">
+            <label for="email">Email Address</label>
+            <input type="email" id="email" name="email" placeholder="e.g. john@example.com" required />
+        </div>
+
+        <!-- ─── Section: MCQ ─── -->
+        <div class="section-divider">Aptitude — Multiple Choice</div>
+
+        <!-- Q1 -->
+        <div class="question-card">
+            <span class="question-number">Question 1</span>
+            <p class="question-text">What is the time complexity of binary search?</p>
+            <div class="mcq-options">
+                <label><input type="radio" name="q1" value="a" required /> O(n)</label>
+                <label><input type="radio" name="q1" value="b" /> O(log n)</label>
+                <label><input type="radio" name="q1" value="c" /> O(n²)</label>
+                <label><input type="radio" name="q1" value="d" /> O(1)</label>
+            </div>
+        </div>
+
+        <!-- Q2 -->
+        <div class="question-card">
+            <span class="question-number">Question 2</span>
+            <p class="question-text">Which data structure uses FIFO (First In, First Out)?</p>
+            <div class="mcq-options">
+                <label><input type="radio" name="q2" value="a" required /> Stack</label>
+                <label><input type="radio" name="q2" value="b" /> Queue</label>
+                <label><input type="radio" name="q2" value="c" /> Tree</label>
+                <label><input type="radio" name="q2" value="d" /> Graph</label>
+            </div>
+        </div>
+
+        <!-- Q3 -->
+        <div class="question-card">
+            <span class="question-number">Question 3</span>
+            <p class="question-text">What does SQL stand for?</p>
+            <div class="mcq-options">
+                <label><input type="radio" name="q3" value="a" required /> Simple Query Language</label>
+                <label><input type="radio" name="q3" value="b" /> Sequential Question Logic</label>
+                <label><input type="radio" name="q3" value="c" /> Structured Query Language</label>
+                <label><input type="radio" name="q3" value="d" /> Standard Quick Language</label>
+            </div>
+        </div>
+
+        <!-- Q4 -->
+        <div class="question-card">
+            <span class="question-number">Question 4</span>
+            <p class="question-text">Which of the following is NOT an OOP concept?</p>
+            <div class="mcq-options">
+                <label><input type="radio" name="q4" value="a" required /> Inheritance</label>
+                <label><input type="radio" name="q4" value="b" /> Compilation</label>
+                <label><input type="radio" name="q4" value="c" /> Polymorphism</label>
+                <label><input type="radio" name="q4" value="d" /> Encapsulation</label>
+            </div>
+        </div>
+
+        <!-- Q5 -->
+        <div class="question-card">
+            <span class="question-number">Question 5</span>
+            <p class="question-text">What is the output of <code>2**3</code> in Python?</p>
+            <div class="mcq-options">
+                <label><input type="radio" name="q5" value="a" required /> 6</label>
+                <label><input type="radio" name="q5" value="b" /> 5</label>
+                <label><input type="radio" name="q5" value="c" /> 9</label>
+                <label><input type="radio" name="q5" value="d" /> 8</label>
+            </div>
+        </div>
+
+        <!-- ─── Section: Text / Coding ─── -->
+        <div class="section-divider">Coding / Written Answers</div>
+
+        <div class="question-card">
+            <span class="question-number">Question 6</span>
+            <p class="question-text">Write a Python function to check whether a given string is a palindrome.</p>
+            <div class="form-group mt-1">
+                <textarea id="text_answer1" name="text_answer1" rows="5"
+                    placeholder="def is_palindrome(s): ..."></textarea>
+            </div>
+        </div>
+
+        <div class="question-card">
+            <span class="question-number">Question 7</span>
+            <p class="question-text">Explain the difference between a list and a tuple in Python. Give examples.</p>
+            <div class="form-group mt-1">
+                <textarea id="text_answer2" name="text_answer2" rows="5"
+                    placeholder="Your answer here..."></textarea>
+            </div>
+        </div>
+
+        <!-- Submit -->
+        <div class="text-center mt-3">
+            <button type="submit" class="btn btn-primary" id="submit-btn">🚀 Submit Test</button>
+        </div>
+    </form>
+</div>
+
+</body>
+</html>

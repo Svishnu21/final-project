@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Side-by-side comparison of two flagged candidates' answers with similarity highlighting." />
+    <title>Compare: {{ sub_a.name }} vs {{ sub_b.name }} — Interview Evaluation</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <style>
+        .compare-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+        .compare-col {
+            min-width: 0;
+        }
+        .compare-col h2 {
+            font-size: 1.1rem;
+            margin-bottom: .75rem;
+            padding: .6rem 1rem;
+            border-radius: var(--radius-sm);
+        }
+        .col-a h2 { background: rgba(108, 99, 255, .12); border: 1px solid rgba(108, 99, 255, .25); }
+        .col-b h2 { background: rgba(243, 156, 18, .12); border: 1px solid rgba(243, 156, 18, .25); }
+
+        .q-compare-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 1rem 1.2rem;
+            margin-bottom: 1rem;
+        }
+        .q-compare-card .q-title {
+            font-weight: 600;
+            font-size: .88rem;
+            color: var(--text-secondary);
+            margin-bottom: .5rem;
+        }
+        .answer-block {
+            grid-column: span 2;
+        }
+        .answer-pair {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .answer-text {
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: .75rem 1rem;
+            font-size: .88rem;
+            white-space: pre-wrap;
+            word-break: break-word;
+            min-height: 60px;
+            line-height: 1.5;
+        }
+        .sim-bar {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            margin-bottom: .5rem;
+            padding: .5rem .75rem;
+            border-radius: var(--radius-sm);
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+        }
+        .sim-meter {
+            flex: 1;
+            height: 8px;
+            background: var(--bg-input);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .sim-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width .4s ease;
+        }
+        .sim-fill.low    { background: var(--success); }
+        .sim-fill.medium { background: var(--warning); }
+        .sim-fill.high   { background: var(--danger); }
+
+        .signal-table {
+            margin-bottom: 2rem;
+        }
+        .signal-table td:last-child {
+            font-weight: 700;
+            text-align: right;
+        }
+        .signal-bar-cell {
+            width: 200px;
+        }
+        .signal-bar {
+            height: 10px;
+            border-radius: 5px;
+            background: var(--bg-input);
+            overflow: hidden;
+        }
+        .signal-bar-inner {
+            height: 100%;
+            border-radius: 5px;
+            transition: width .4s ease;
+        }
+        .signal-bar-inner.high   { background: var(--danger); }
+        .signal-bar-inner.medium { background: var(--warning); }
+        .signal-bar-inner.low    { background: var(--success); }
+
+        .sim-pct.high   { color: var(--danger); }
+        .sim-pct.medium { color: var(--warning); }
+        .sim-pct.low    { color: var(--success); }
+
+        mark {
+            background: rgba(243, 156, 18, .3);
+            color: var(--text-primary);
+            padding: 0 2px;
+            border-radius: 2px;
+        }
+
+        .action-bar {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        @media (max-width: 768px) {
+            .compare-grid { grid-template-columns: 1fr; }
+            .answer-pair { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container-wide">
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+        <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <!-- Header -->
+    <div class="dash-header">
+        <div>
+            <h1>🔍 Pair Comparison</h1>
+            <p style="color:var(--text-secondary);font-size:.9rem;">
+                Side-by-side answer comparison for flagged candidates
+            </p>
+        </div>
+        <div>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline btn-sm">← Dashboard</a>
+        </div>
+    </div>
+
+    <!-- Candidate Headers -->
+    <div class="compare-grid" style="margin-bottom:1.5rem;">
+        <div class="compare-col col-a">
+            <h2>👤 {{ sub_a.name }}<br>
+                <span style="font-size:.78rem;font-weight:400;color:var(--text-muted);">{{ sub_a.email }}</span>
+            </h2>
+        </div>
+        <div class="compare-col col-b">
+            <h2>👤 {{ sub_b.name }}<br>
+                <span style="font-size:.78rem;font-weight:400;color:var(--text-muted);">{{ sub_b.email }}</span>
+            </h2>
+        </div>
+    </div>
+
+    <!-- Signal Breakdown Table -->
+    {% if risk_a and risk_b %}
+    <div class="card" style="margin-bottom:2rem;">
+        <h3 style="margin-bottom:1rem;">📊 Signal Breakdown</h3>
+        <div class="table-wrapper signal-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Signal</th>
+                        <th>{{ sub_a.name }}</th>
+                        <th style="width:180px;">Visual</th>
+                        <th>{{ sub_b.name }}</th>
+                        <th style="width:180px;">Visual</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set signals = [
+                        ('Text Similarity', 'text_similarity'),
+                        ('Time Pattern', 'time_pattern'),
+                        ('Sequence Match', 'sequence_match'),
+                        ('Style Match', 'style_match'),
+                        ('Score Anomaly', 'score_anomaly'),
+                        ('Edit Distance', 'edit_distance')
+                    ] %}
+                    {% for label, key in signals %}
+                    {% set va = risk_a.signal_breakdown[key] %}
+                    {% set vb = risk_b.signal_breakdown[key] %}
+                    <tr>
+                        <td>{{ label }}</td>
+                        <td style="font-weight:600;">{{ (va * 100)|round(1) }}%</td>
+                        <td class="signal-bar-cell">
+                            <div class="signal-bar">
+                                <div class="signal-bar-inner {% if va > 0.65 %}high{% elif va > 0.35 %}medium{% else %}low{% endif %}"
+                                     data-width="{{ (va * 100)|round }}"></div>
+                            </div>
+                        </td>
+                        <td style="font-weight:600;">{{ (vb * 100)|round(1) }}%</td>
+                        <td class="signal-bar-cell">
+                            <div class="signal-bar">
+                                <div class="signal-bar-inner {% if vb > 0.65 %}high{% elif vb > 0.35 %}medium{% else %}low{% endif %}"
+                                     data-width="{{ (vb * 100)|round }}"></div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    <tr style="border-top:2px solid var(--border-color);">
+                        <td><strong>Final Risk</strong></td>
+                        <td colspan="2">
+                            <span class="badge badge-{{ risk_a.risk_level|lower }}">{{ risk_a.risk_level }}</span>
+                            &nbsp; {{ risk_a.confidence }}
+                        </td>
+                        <td colspan="2">
+                            <span class="badge badge-{{ risk_b.risk_level|lower }}">{{ risk_b.risk_level }}</span>
+                            &nbsp; {{ risk_b.confidence }}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Question-by-Question Comparison -->
+    <h3 style="margin-bottom:1rem;">📝 Answer Comparison</h3>
+
+    {% for item in comparison_items %}
+    <div class="q-compare-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;">
+            <div class="q-title">
+                <span class="question-number">Q{{ loop.index }}</span>
+                {{ item.question_text }}
+            </div>
+            {% if item.type == 'text' %}
+                <span class="badge" style="background:rgba(231,76,60,.15);color:var(--danger);font-size:.68rem;">Text</span>
+            {% elif item.type == 'mcq' %}
+                <span class="badge" style="background:rgba(108,99,255,.15);color:var(--accent-light);font-size:.68rem;">MCQ</span>
+            {% elif item.type == 'truefalse' %}
+                <span class="badge" style="background:rgba(46,204,113,.15);color:var(--success);font-size:.68rem;">T/F</span>
+            {% else %}
+                <span class="badge" style="background:rgba(243,156,18,.15);color:var(--warning);font-size:.68rem;">Fill Blank</span>
+            {% endif %}
+        </div>
+
+        {% if item.similarity is not none %}
+        <div class="sim-bar">
+            <span style="font-size:.78rem;color:var(--text-muted);white-space:nowrap;">Similarity:</span>
+            <div class="sim-meter">
+                <div class="sim-fill {% if item.similarity > 0.7 %}high{% elif item.similarity > 0.4 %}medium{% else %}low{% endif %}"
+                     data-width="{{ (item.similarity * 100)|round }}"></div>
+            </div>
+            <span class="sim-pct {% if item.similarity > 0.7 %}high{% elif item.similarity > 0.4 %}medium{% else %}low{% endif %}"
+                  style="font-size:.85rem;font-weight:700;">
+                {{ (item.similarity * 100)|round(1) }}%
+            </span>
+        </div>
+        {% endif %}
+
+        <div class="answer-pair">
+            <div class="answer-text" id="ans-a-{{ loop.index }}">{{ item.answer_a if item.answer_a else '(No answer)' }}</div>
+            <div class="answer-text" id="ans-b-{{ loop.index }}">{{ item.answer_b if item.answer_b else '(No answer)' }}</div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Action Buttons -->
+    <div class="action-bar">
+        <form action="{{ url_for('compare_clear', email=sub_a.email) }}" method="POST" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <button type="submit" class="btn btn-outline" id="clear-a-btn">
+                ✅ Mark {{ sub_a.name }} as Genuine
+            </button>
+        </form>
+        <form action="{{ url_for('compare_clear', email=sub_b.email) }}" method="POST" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <button type="submit" class="btn btn-outline" id="clear-b-btn">
+                ✅ Mark {{ sub_b.name }} as Genuine
+            </button>
+        </form>
+        <form action="{{ url_for('compare_confirm', email=sub_a.email) }}" method="POST" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <button type="submit" class="btn btn-danger" id="confirm-a-btn">
+                🚨 Confirm {{ sub_a.name }} Malpractice
+            </button>
+        </form>
+        <form action="{{ url_for('compare_confirm', email=sub_b.email) }}" method="POST" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <button type="submit" class="btn btn-danger" id="confirm-b-btn">
+                🚨 Confirm {{ sub_b.name }} Malpractice
+            </button>
+        </form>
+    </div>
+
+</div>
+
+<script>
+(function() {
+    // Apply data-width attributes as inline widths
+    document.querySelectorAll('[data-width]').forEach(function(el) {
+        el.style.width = el.getAttribute('data-width') + '%';
+    });
+
+    // Highlight common words between answer pairs
+    var pairs = document.querySelectorAll('.answer-pair');
+    pairs.forEach(function(pair) {
+        var aEl = pair.querySelector('.answer-text:first-child');
+        var bEl = pair.querySelector('.answer-text:last-child');
+        if (!aEl || !bEl) return;
+
+        var textA = aEl.textContent.trim();
+        var textB = bEl.textContent.trim();
+        if (!textA || !textB || textA === '(No answer)' || textB === '(No answer)') return;
+
+        var wordsA = textA.toLowerCase().split(/\s+/);
+        var wordsB = new Set(textB.toLowerCase().split(/\s+/));
+        var commonWords = new Set();
+        wordsA.forEach(function(w) {
+            if (wordsB.has(w) && w.length > 3) commonWords.add(w);
+        });
+
+        if (commonWords.size < 3) return;
+
+        if (textA.length > 40 && textB.length > 40) {
+            function highlightCommon(el) {
+                var html = el.textContent;
+                commonWords.forEach(function(word) {
+                    var regex = new RegExp('\\b(' + word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')\\b', 'gi');
+                    html = html.replace(regex, '<mark>$1</mark>');
+                });
+                el.innerHTML = html;
+            }
+            highlightCommon(aEl);
+            highlightCommon(bEl);
+        }
+    });
+})();
+</script>
+
+</body>
+</html>

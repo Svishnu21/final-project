@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Build and manage interview questions — MCQ, True/False, Fill in the Blank, and Text/Coding." />
+    <title>Question Builder — Interview Evaluation System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+
+<div class="container-wide">
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+        <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <!-- Header -->
+    <div class="dash-header">
+        <div>
+            <h1>🛠️ Question Builder</h1>
+            <p style="color:var(--text-secondary);font-size:.9rem;">
+                Create &amp; manage test questions for candidates
+            </p>
+        </div>
+        <div style="display:flex;gap:.75rem;align-items:center;">
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline btn-sm">← Dashboard</a>
+            <a href="{{ url_for('candidates') }}" class="btn btn-outline btn-sm">👥 Candidates</a>
+            <a href="{{ url_for('logout') }}" class="btn btn-outline btn-sm">Logout</a>
+        </div>
+    </div>
+
+    <!-- ─── Add Question Form ─── -->
+    <div class="card" style="margin-bottom:2rem;">
+        <h2 style="margin-bottom:1rem;">➕ Add New Question</h2>
+
+        <form action="{{ url_for('add_question') }}" method="POST" id="add-question-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div class="form-group">
+                <label for="type">Question Type</label>
+                <select id="type" name="type" onchange="toggleFields()">
+                    <option value="mcq">📝 Multiple Choice (MCQ)</option>
+                    <option value="truefalse">✅ True or False</option>
+                    <option value="fillintheblank">✏️ Fill in the Blank</option>
+                    <option value="text">💻 Text / Coding (Manual Review)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="question_text">Question Text</label>
+                <textarea id="question_text" name="question_text" rows="3"
+                    placeholder="Enter your question here..." required></textarea>
+            </div>
+
+            <!-- MCQ Options (shown only for MCQ) -->
+            <div id="mcq-fields">
+                <div class="section-divider">MCQ Options</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                    <div class="form-group">
+                        <label for="option_a">Option A</label>
+                        <input type="text" id="option_a" name="option_a" placeholder="Option A" />
+                    </div>
+                    <div class="form-group">
+                        <label for="option_b">Option B</label>
+                        <input type="text" id="option_b" name="option_b" placeholder="Option B" />
+                    </div>
+                    <div class="form-group">
+                        <label for="option_c">Option C</label>
+                        <input type="text" id="option_c" name="option_c" placeholder="Option C" />
+                    </div>
+                    <div class="form-group">
+                        <label for="option_d">Option D</label>
+                        <input type="text" id="option_d" name="option_d" placeholder="Option D" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Correct Answer (MCQ dropdown) -->
+            <div id="mcq-answer-field" class="form-group">
+                <label for="correct_answer_mcq">Correct Answer</label>
+                <select id="correct_answer_mcq" name="correct_answer">
+                    <option value="">-- Select correct option --</option>
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
+                </select>
+            </div>
+
+            <!-- True/False answer -->
+            <div id="tf-answer-field" class="form-group" style="display:none;">
+                <label for="correct_answer_tf">Correct Answer</label>
+                <select id="correct_answer_tf" name="correct_answer_tf">
+                    <option value="True">True</option>
+                    <option value="False">False</option>
+                </select>
+            </div>
+
+            <!-- Fill in the blank answer -->
+            <div id="fib-answer-field" class="form-group" style="display:none;">
+                <label for="correct_answer_fib">Correct Answer</label>
+                <input type="text" id="correct_answer_fib" name="correct_answer_fib"
+                    placeholder="Expected answer (case-insensitive)" />
+            </div>
+
+            <!-- Text info -->
+            <div id="text-info" style="display:none;margin-bottom:1.4rem;">
+                <div style="padding:1rem;background:rgba(108,99,255,.08);border:1px solid var(--border-color);border-radius:var(--radius-sm);color:var(--text-secondary);font-size:.9rem;">
+                    ℹ️ Text/Coding questions have no auto-graded answer. The recruiter will manually review and score these.
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="add-question-btn">
+                ✨ Add Question
+            </button>
+        </form>
+    </div>
+
+    <!-- ─── Existing Questions Table ─── -->
+    <h2 style="margin-bottom:1rem;">📋 Existing Questions ({{ questions | length }})</h2>
+
+    {% if questions %}
+    <div class="table-wrapper">
+        <table id="questions-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Question</th>
+                    <th>Type</th>
+                    <th>Correct Answer</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for q in questions %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td style="white-space:normal;max-width:400px;">{{ q.question_text }}</td>
+                    <td>
+                        {% if q.type == 'mcq' %}
+                            <span class="badge" style="background:rgba(108,99,255,.15);color:var(--accent-light);">MCQ</span>
+                        {% elif q.type == 'truefalse' %}
+                            <span class="badge" style="background:rgba(46,204,113,.15);color:var(--success);">T/F</span>
+                        {% elif q.type == 'fillintheblank' %}
+                            <span class="badge" style="background:rgba(243,156,18,.15);color:var(--warning);">Fill Blank</span>
+                        {% else %}
+                            <span class="badge" style="background:rgba(231,76,60,.15);color:var(--danger);">Text</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if q.type == 'text' %}
+                            <em style="color:var(--text-muted);">Manual review</em>
+                        {% else %}
+                            {{ q.correct_answer }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        <form action="{{ url_for('delete_question', qid=q._id) }}" method="POST"
+                              style="display:inline;" onsubmit="return confirm('Delete this question?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="btn btn-danger btn-sm">🗑️ Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card text-center" style="padding:2.5rem;">
+        <p style="font-size:2rem;margin-bottom:.5rem;">📭</p>
+        <p style="color:var(--text-secondary);">No questions created yet. Add your first question above!</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function toggleFields() {
+    var type = document.getElementById('type').value;
+
+    // Hide all conditional sections
+    document.getElementById('mcq-fields').style.display = 'none';
+    document.getElementById('mcq-answer-field').style.display = 'none';
+    document.getElementById('tf-answer-field').style.display = 'none';
+    document.getElementById('fib-answer-field').style.display = 'none';
+    document.getElementById('text-info').style.display = 'none';
+
+    // Disable hidden inputs so they don't submit
+    document.getElementById('correct_answer_mcq').disabled = true;
+    document.getElementById('correct_answer_tf').disabled = true;
+    document.getElementById('correct_answer_fib').disabled = true;
+
+    if (type === 'mcq') {
+        document.getElementById('mcq-fields').style.display = 'block';
+        document.getElementById('mcq-answer-field').style.display = 'block';
+        document.getElementById('correct_answer_mcq').disabled = false;
+        // Rename so it submits as "correct_answer"
+        document.getElementById('correct_answer_mcq').name = 'correct_answer';
+        document.getElementById('correct_answer_tf').name = '_disabled_tf';
+        document.getElementById('correct_answer_fib').name = '_disabled_fib';
+    } else if (type === 'truefalse') {
+        document.getElementById('tf-answer-field').style.display = 'block';
+        document.getElementById('correct_answer_tf').disabled = false;
+        document.getElementById('correct_answer_tf').name = 'correct_answer';
+        document.getElementById('correct_answer_mcq').name = '_disabled_mcq';
+        document.getElementById('correct_answer_fib').name = '_disabled_fib';
+    } else if (type === 'fillintheblank') {
+        document.getElementById('fib-answer-field').style.display = 'block';
+        document.getElementById('correct_answer_fib').disabled = false;
+        document.getElementById('correct_answer_fib').name = 'correct_answer';
+        document.getElementById('correct_answer_mcq').name = '_disabled_mcq';
+        document.getElementById('correct_answer_tf').name = '_disabled_tf';
+    } else if (type === 'text') {
+        document.getElementById('text-info').style.display = 'block';
+        document.getElementById('correct_answer_mcq').name = '_disabled_mcq';
+        document.getElementById('correct_answer_tf').name = '_disabled_tf';
+        document.getElementById('correct_answer_fib').name = '_disabled_fib';
+    }
+}
+
+// Initialize on page load
+toggleFields();
+</script>
+
+</body>
+</html>
